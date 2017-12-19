@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
+from torch.autograd import Variable
 
 #Hyper Parameters
 
@@ -21,34 +22,35 @@ LR = 0.001
 class DogSet(Dataset):
 
 
-	def __init__(self, csv_file, root_dir, transform = None, trainsize = 10000, train = True):
-		if train :
-			self.label_frame = pd.read_csv(csv_file)[:trainsize]
-		else:
-			self.label_frame = pd.read_csv(csv_file)[trainsize:]
-		self.root_dir = root_dir
-		self.transform = transform
-		set_breed = set(self.label_frame.breed)
-		self.breeds={breed : i for i, breed in enumerate(set_breed)}
+    def __init__(self, csv_file, root_dir, transform = None, trainsize = 10000, train = True):
+        if train :
+            self.label_frame = pd.read_csv(csv_file)[:trainsize]
+        else:
+            self.label_frame = pd.read_csv(csv_file)[trainsize:]
+        self.root_dir = root_dir
+        self.transform = transform
+        self.set_breed = set(self.label_frame.breed)
 
-	def __len__(self):
-		return len(self.label_frame)
+        self.breeds={breed : i for i, breed in enumerate(self.set_breed)}
 
-
-	def __getitem__(self, idx):
-		
-		image_name = os.path.join(self.root_dir, self.label_frame.id[idx])+'.jpg'
-		image = io.imread(image_name)
-		breed = self.label_frame.breed[idx]
-		label = self.breeds[breed]
-
-		if self.transform:
-			image = self.transform(image)
-		return image, label
+    def __len__(self):
+        return len(self.label_frame)
 
 
+    def __getitem__(self, idx):
+        image_name = os.path.join(self.root_dir, self.label_frame.id[idx])+'.jpg'
+        image = io.imread(image_name)
+        breed = self.label_frame.breed[idx]
+        label = self.breeds[breed]
 
-		
+
+        if self.transform:
+            image = self.transform(image)
+        return image, label, breed
+
+
+
+
 class CNN(torch.nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
@@ -69,7 +71,7 @@ class CNN(torch.nn.Module):
         x = self.conv2(x)
         x = x.view(x.size(0),-1)
         out = self.out(x)
-        return output, x
+        return out, x
 
 
 train_dog =  DogSet(csv_file = 'labels.csv', 
@@ -85,7 +87,7 @@ train_dog =  DogSet(csv_file = 'labels.csv',
 		)
 		
 
-test_dog = Dogset(csv_file = 'labels.csv',
+test_dog = DogSet(csv_file = 'labels.csv',
                 root_dir = './train',
                 transform = transforms.Compose(
                 [   transforms.ToPILImage(),
@@ -101,30 +103,37 @@ test_loader = DataLoader(dataset = test_dog, batch_size = 3000, shuffle = True)
 cnn = CNN()
 print (cnn)
 
-optimizer = torch.optim.Adam(cnn.parameters(), lr = LR)
-loss_func =nn.CrossEntropyLoss()
+x0, y0, breed0 =train_dog[0]
+print ('x0 size:',x0.size())
+x0_ = torch.unsqueeze(x0, 0)
+x0_out, _ = cnn(Variable(x0_))
 
-for epoch in range(EPOCH):
-    for step, (x,y) in enumerate(train_loader)
-        b_x = Variable(x)
-        b_y=  Variable(y)
-        optimizer.zero_grad()
-        output = cnn(b_x)
-        loss = loss_func(output, b_y)
+print ('x0_out:',torch.max(x0_out, 1)[1].data.numpy())
+print ('y0:', y0, breed0)
+# optimizer = torch.optim.Adam(cnn.parameters(), lr = LR)
+# loss_func =nn.CrossEntropyLoss()
 
-        loss.backward()
-        optimizer.step()
+# for epoch in range(EPOCH):
+    # for step, (x,y) in enumerate(train_loader)
+        # b_x = Variable(x)
+        # b_y=  Variable(y)
+        # optimizer.zero_grad()
+        # output = cnn(b_x)
+        # loss = loss_func(output, b_y)
+
+        # loss.backward()
+        # optimizer.step()
         
-        if step%50==0:
-            for (test_x, test_y) in test_loader:
-                optimizer.zero_grad()
-                test_out, _ = cnn(Variable(test_x))
-                loss = loss_func(test_out,Variable(test_y))
-                print('Epoch: ', epoch, '| train loss: %.4f' % loss.data[0])
+        # if step%50==0:
+            # for (test_x, test_y) in test_loader:
+                # optimizer.zero_grad()
+                # test_out, _ = cnn(Variable(test_x))
+                # loss = loss_func(test_out,Variable(test_y))
+                # print('Epoch: ', epoch, '| train loss: %.4f' % loss.data[0])
 
 # print (len(train_dog))
-#train_data = dog_dataset[0:8000]
-#test_data = dog_dataset[8000:]
+# train_data = dog_dataset[0:8000]
+# test_data = dog_dataset[8000:]
 
 
 

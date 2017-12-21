@@ -15,7 +15,7 @@ from torch.autograd import Variable
 torch.manual_seed(1) 
 #Hyper Parameters
 
-EPOCH = 1
+EPOCH = 50
 BATCH_SIZE = 50
 LR = 0.001
 
@@ -112,9 +112,10 @@ test_dog = DogSet(label_to_ix = label_to_ix, dog_pd = dog_pd,
                 
                 
 train_loader = DataLoader(dataset =train_dog, batch_size=BATCH_SIZE, shuffle = True,num_workers=4)
-test_loader = DataLoader(dataset = test_dog, batch_size =BATCH_SIZE, shuffle = False, num_workers=4)
+test_loader = DataLoader(dataset = test_dog, batch_size =100, shuffle = False, num_workers=4)
 
 cnn = CNN()
+cnn.cuda()
 print (cnn)
 
 
@@ -135,28 +136,39 @@ loss_func =nn.CrossEntropyLoss()
 
 for epoch in range(EPOCH):
     for step, (x,y, breed) in enumerate(train_loader):
-        b_x = Variable(x)
-        b_y=  Variable(y)
+        b_x = Variable(x.cuda())
+        b_y=  Variable(y.cuda())
         optimizer.zero_grad()
         output = cnn(b_x)
         loss = loss_func(output, b_y)
 
         loss.backward()
         optimizer.step()
+        pred_y = torch.max(output, 1)[1].cuda().data.squeeze()
+        accuracy = sum(pred_y == y.cuda()) / float(y.size(0))
+        print('Epoch: ', epoch, '|Step:', step, '| train loss: %.4f' % loss.data[0], '|train accuracy: %.2f' % accuracy)
+        # if step%50==0:
+            # for i, (test_x, test_y, test_breed) in enumerate(test_loader):
+                # optimizer.zero_grad()
+                # test_out= cnn(Variable(test_x.cuda()))
+                # test_loss = loss_func(test_out,Variable(test_y.cuda()))
+                # pred_y = torch.max(test_out, 1)[1].cuda().data.squeeze()
+                # test_y = test_y.cuda()
+                # accuracy = sum(pred_y == test_y) / float(test_y.size(0))
+                # print('Epoch: ', epoch, '|Step:', step, '| train loss: %.4f' % test_loss.data[0], '|test accuracy: %.2f' % accuracy)
+                # if i== 0:
+                   # break
+        #if step == 50:
+        #    break
         
-        if step%10==0:
-            for i, (test_x, test_y, test_breed) in enumerate(test_loader):
-                optimizer.zero_grad()
-                test_out= cnn(Variable(test_x))
-                loss = loss_func(test_out,Variable(test_y))
-                pred_y = torch.max(test_out, 1)[1].data.numpy().squeeze()
-                accuracy = sum(pred_y == test_y) / float(test_y.size(0))
-                print('Epoch: ', epoch, '|Step:', step, '| train loss: %.4f' % loss.data[0], '|test accuracy: %.2f' % accuracy)
-                if i== 0:
-                   break
-        if step == 50:
-            break
-        
+for i, (test_x, test_y, test_breed) in enumerate(test_loader):
+    optimizer.zero_grad()
+    test_out= cnn(Variable(test_x.cuda()))
+    test_loss = loss_func(test_out,Variable(test_y.cuda()))
+    pred_y = torch.max(test_out, 1)[1].cuda().data.squeeze()
+    test_y = test_y.cuda()
+    accuracy = sum(pred_y == test_y) / float(test_y.size(0))
+    print('test: i:', i, '| test loss: %.4f' % test_loss.data[0], '|test accuracy: %.2f' % accuracy)
 
 # print (len(train_dog))
 # train_data = dog_dataset[0:8000]

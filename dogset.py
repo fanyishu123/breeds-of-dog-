@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.autograd import Variable
-
+import torchvision.models as models
 
 torch.manual_seed(1) 
 #Hyper Parameters
